@@ -23,15 +23,6 @@
       "ConstraintDescription" : "must begin with a letter and contain only alphanumeric characters or hyphens."
     },
 
-    "OriginAccessIdentity": {
-      "Description" : "The key you want to use for origina access verification",
-      "Type": "String",
-      "MinLength": "1",
-      "MaxLength": "64",
-      "AllowedPattern" : "[a-zA-Z][a-zA-Z0-9]*",
-      "ConstraintDescription" : "must begin with a letter and contain only alphanumeric characters."
-    },
-
     "DomainName": {
       "Description" : "The domain (or subdomain) to use",
       "Type": "String",
@@ -78,14 +69,7 @@
         "DistributionConfig" : {
           "Origins" : [ {
             "DomainName": { "Fn::GetAtt" : [ "ContentBucket", "DomainName" ] },
-            "Id" : "S3Origin",
-            "S3OriginConfig" : {
-              "OriginAccessIdentity" : { "Fn::Join" : ["/", [
-                "origin-access-identity",
-                "cloudfront",
-                { "Ref": "OriginAccessIdentity" }
-              ]]}
-            }
+            "Id" : "S3Origin"
           }],
           "Enabled" : "true",
           "Comment" : { "Ref": "ClientTag" },
