@@ -5,19 +5,8 @@
 
   "Parameters" : {
 
-    "DescriptionTag": {
-      "Description" : "Stack Name",
-      "Default": "peacecorps-prod",
-      "Type": "String",
-      "MinLength": "1",
-      "MaxLength": "255",
-      "AllowedPattern" : "[\\x20-\\x7E]*",
-      "ConstraintDescription" : "can contain only ASCII characters."
-    },
-
      "ClientTag": {
       "Description" : "IAA Number of the Client",
-      "Default": "",
       "Type": "String",
       "MinLength": "1",
       "MaxLength": "255",
@@ -26,7 +15,6 @@
     },
 
     "BucketName": {
-      "Default": "",
       "Description" : "The name you want to assign to the S3 bucket",
       "Type": "String",
       "MinLength": "1",
@@ -36,7 +24,6 @@
     },
 
     "OriginAccessIdentity": {
-      "Default": "",
       "Description" : "The key you want to use for origina access verification",
       "Type": "String",
       "MinLength": "1",
@@ -45,6 +32,23 @@
       "ConstraintDescription" : "must begin with a letter and contain only alphanumeric characters."
     },
 
+    "DomainName": {
+      "Description" : "The domain (or subdomain) to use",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern" : "^((?!-)[A-Za-z0-9-]{1,63}(?<!-)\\.)+[A-Za-z]{2,6}$",
+      "ConstraintDescription" : "Can only contain: a-z | A-Z | 0-9 and hyphen(-). Should between 1 and 63 characters long. TLD must be at least two characters, and a maximum of 6 characters. Should not start or end with hyphen (-). Can be a subdomain."
+    },
+
+    "Route53HostedZoneID": {
+      "Description" : "The Hosted Zone ID from Route53",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "255",
+      "AllowedPattern" : "[\\x20-\\x7E]*",
+      "ConstraintDescription" : "can contain only ASCII characters."
+    }
   },
 
   "Resources" : {
@@ -58,7 +62,7 @@
           {
             "Key": "client",
             "Value": { "Ref": "ClientTag" }
-          },
+          }
         ],
         "WebsiteConfiguration" : {
           "IndexDocument" : "index.html",
@@ -73,7 +77,7 @@
       "Properties" : {
         "DistributionConfig" : {
           "Origins" : [ {
-            "DomainName": { "Fn::GetAtt" : [ "S3Bucket", "DomainName" ] },
+            "DomainName": { "Fn::GetAtt" : [ "ContentBucket", "DomainName" ] },
             "Id" : "S3Origin",
             "S3OriginConfig" : {
               "OriginAccessIdentity" : { "Fn::Join" : ["/", [
@@ -84,33 +88,38 @@
             }
           }],
           "Enabled" : "true",
-          "Comment" : "Some comment",
+          "Comment" : { "Ref": "ClientTag" },
           "DefaultRootObject" : "index.html",
-          "Logging" : {
-            "IncludeCookies" : "false",
-            "Bucket" : "mylogs.s3.amazonaws.com",
-            "Prefix" : "myprefix"
-          },
-          "Aliases" : [ "mysite.example.com", "yoursite.example.com" ],
+          "Aliases" : [
+            { "Ref" : "DomainName" }
+          ],
           "DefaultCacheBehavior" : {
-            "AllowedMethods" : [ "DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT" ],  
+            "AllowedMethods" : [ "HEAD", "GET" ],  
             "TargetOriginId" : "S3Origin",
             "ForwardedValues" : {
               "QueryString" : "false",
               "Cookies" : { "Forward" : "none" }
             },
-            "TrustedSigners" : [ "1234567890EX", "1234567891EX" ],
             "ViewerProtocolPolicy" : "allow-all"
           },
-          "PriceClass" : "PriceClass_200",
-          "Restrictions" : {
-            "GeoRestriction" : {
-              "RestrictionType" : "whitelist",
-              "Locations" : [ "AQ", "CV" ]
-            }
-          },
+          "PriceClass" : "PriceClass_100",
           "ViewerCertificate" : { "CloudFrontDefaultCertificate" : "true" }  
         }
+      }
+    },
+
+    "R53DomainRecord" : {
+      "Type" : "AWS::Route53::RecordSetGroup",
+      "Properties" : {
+        "HostedZoneId" : { "Ref" : "Route53HostedZoneID" },
+        "RecordSets" : [{
+          "Name" : { "Ref": "DomainName" },
+          "Type" : "A",
+          "AliasTarget" : {
+            "HostedZoneId" : { "Ref" : "Route53HostedZoneID" },
+            "DNSName" : { "Fn::GetAtt" : [ "CFDistribution", "DomainName" ] }
+          }
+        }]
       }
     }
 
@@ -118,8 +127,8 @@
 
   "Outputs" : {
     "WebsiteURL" : {
-      "Value" : { "Fn::GetAtt" : [ "ELB", "DNSName" ] },
-      "Description" : "URL for the ELB"
+      "Value" : { "Ref" : "R53DomainRecord" },
+      "Description" : "URL for the Domain"
     }
   }
 }
