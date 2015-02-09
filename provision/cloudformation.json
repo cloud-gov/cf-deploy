@@ -1,7 +1,7 @@
 {
   "AWSTemplateFormatVersion" : "2010-09-09",
 
-  "Description" : "AWS CloudFormation for a VPC with RDS and web instances",
+  "Description" : "AWS CloudFormation S3-Backed CloudFront Distribution",
 
   "Parameters" : {
 
@@ -39,6 +39,12 @@
       "MaxLength": "255",
       "AllowedPattern" : "[\\x20-\\x7E]*",
       "ConstraintDescription" : "can contain only ASCII characters."
+    },
+
+    "Route53RecordSetName": {
+      "Description" : "The name to use for the record set (if you are at the root domain, leave blank).",
+      "Default": "",
+      "Type": "String"
     }
   },
 
@@ -59,8 +65,7 @@
           "IndexDocument" : "index.html",
           "ErrorDocument" : "error.html"
         }
-      },
-      "DeletionPolicy" : "Retain"
+      }
     },
 
     "CFDistribution" : {
@@ -69,7 +74,8 @@
         "DistributionConfig" : {
           "Origins" : [ {
             "DomainName": { "Fn::GetAtt" : [ "ContentBucket", "DomainName" ] },
-            "Id" : "S3Origin"
+            "Id" : "S3Origin",
+            "S3OriginConfig": { }
           }],
           "Enabled" : "true",
           "Comment" : { "Ref": "ClientTag" },
@@ -97,7 +103,7 @@
       "Properties" : {
         "HostedZoneId" : { "Ref" : "Route53HostedZoneID" },
         "RecordSets" : [{
-          "Name" : { "Ref": "DomainName" },
+          "Name" : { "Ref" : "Route53RecordSetName" },
           "Type" : "A",
           "AliasTarget" : {
             "HostedZoneId" : { "Ref" : "Route53HostedZoneID" },
