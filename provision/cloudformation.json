@@ -1,0 +1,125 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "AWS CloudFormation for a VPC with RDS and web instances",
+
+  "Parameters" : {
+
+    "DescriptionTag": {
+      "Description" : "Stack Name",
+      "Default": "peacecorps-prod",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "255",
+      "AllowedPattern" : "[\\x20-\\x7E]*",
+      "ConstraintDescription" : "can contain only ASCII characters."
+    },
+
+     "ClientTag": {
+      "Description" : "IAA Number of the Client",
+      "Default": "",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "255",
+      "AllowedPattern" : "[\\x20-\\x7E]*",
+      "ConstraintDescription" : "can contain only ASCII characters."
+    },
+
+    "BucketName": {
+      "Default": "",
+      "Description" : "The name you want to assign to the S3 bucket",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern" : "[a-zA-Z][a-zA-Z0-9-]*",
+      "ConstraintDescription" : "must begin with a letter and contain only alphanumeric characters or hyphens."
+    },
+
+    "OriginAccessIdentity": {
+      "Default": "",
+      "Description" : "The key you want to use for origina access verification",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern" : "[a-zA-Z][a-zA-Z0-9]*",
+      "ConstraintDescription" : "must begin with a letter and contain only alphanumeric characters."
+    },
+
+  },
+
+  "Resources" : {
+
+    "ContentBucket" : {
+      "Type" : "AWS::S3::Bucket",
+      "Properties" : {
+        "AccessControl" : "PublicRead",
+        "BucketName": { "Ref" : "BucketName" },
+        "Tags": [
+          {
+            "Key": "client",
+            "Value": { "Ref": "ClientTag" }
+          },
+        ],
+        "WebsiteConfiguration" : {
+          "IndexDocument" : "index.html",
+          "ErrorDocument" : "error.html"
+        }
+      },
+      "DeletionPolicy" : "Retain"
+    },
+
+    "CFDistribution" : {
+      "Type" : "AWS::CloudFront::Distribution",
+      "Properties" : {
+        "DistributionConfig" : {
+          "Origins" : [ {
+            "DomainName": { "Fn::GetAtt" : [ "S3Bucket", "DomainName" ] },
+            "Id" : "S3Origin",
+            "S3OriginConfig" : {
+              "OriginAccessIdentity" : { "Fn::Join" : ["/", [
+                "origin-access-identity",
+                "cloudfront",
+                { "Ref": "OriginAccessIdentity" }
+              ]]}
+            }
+          }],
+          "Enabled" : "true",
+          "Comment" : "Some comment",
+          "DefaultRootObject" : "index.html",
+          "Logging" : {
+            "IncludeCookies" : "false",
+            "Bucket" : "mylogs.s3.amazonaws.com",
+            "Prefix" : "myprefix"
+          },
+          "Aliases" : [ "mysite.example.com", "yoursite.example.com" ],
+          "DefaultCacheBehavior" : {
+            "AllowedMethods" : [ "DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT" ],  
+            "TargetOriginId" : "S3Origin",
+            "ForwardedValues" : {
+              "QueryString" : "false",
+              "Cookies" : { "Forward" : "none" }
+            },
+            "TrustedSigners" : [ "1234567890EX", "1234567891EX" ],
+            "ViewerProtocolPolicy" : "allow-all"
+          },
+          "PriceClass" : "PriceClass_200",
+          "Restrictions" : {
+            "GeoRestriction" : {
+              "RestrictionType" : "whitelist",
+              "Locations" : [ "AQ", "CV" ]
+            }
+          },
+          "ViewerCertificate" : { "CloudFrontDefaultCertificate" : "true" }  
+        }
+      }
+    }
+
+  },
+
+  "Outputs" : {
+    "WebsiteURL" : {
+      "Value" : { "Fn::GetAtt" : [ "ELB", "DNSName" ] },
+      "Description" : "URL for the ELB"
+    }
+  }
+}
